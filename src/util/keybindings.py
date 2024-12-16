@@ -101,20 +101,21 @@ class KeyBindings(GObject.GObject):
 
         if filtered_state == 0 and event.keyval == Gdk.KEY_Escape:
             if status.Awake:
-                self.manager.cancel_unlock_widget()
+                self.manager.cancel_unlocking()
                 return True
 
-        if event.keyval == Gdk.KEY_Menu:
+        if event.keyval in (Gdk.KEY_Menu, Gdk.KEY_F10):
             return True
 
         if status.Awake:
-            if (event.keyval in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab)):
+            if event.keyval in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab):
                 if event.keyval == Gdk.KEY_ISO_Left_Tab:
                     self.manager.propagate_tab_event(True)
                 else:
                     self.manager.propagate_tab_event(False)
                 return True
-            elif event.keyval == Gdk.KEY_space and isinstance(self.manager.get_focused_widget(), Gtk.Button):
+            elif (event.keyval in (Gdk.KEY_space, Gdk.KEY_Return, Gdk.KEY_KP_Enter)) and \
+                  isinstance(self.manager.get_focused_widget(), Gtk.Button):
                 self.manager.propagate_activation()
                 return True
 

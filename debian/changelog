@@ -1,3 +1,178 @@
+cinnamon-screensaver (6.4.0-1) unstable; urgency=medium
+
+  * New upstream version 6.4.0
+  * d/patches: remove 2 patches applied upstream and refresh other
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 01 Dec 2024 18:52:01 +0100
+
+cinnamon-screensaver (6.2.1-1) unstable; urgency=medium
+
+  * d/gbp.conf: switch to DEP-14
+  * New upstream version 6.2.1
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Tue, 24 Sep 2024 23:16:26 +0200
+
+cinnamon-screensaver (6.2.0-1) unstable; urgency=medium
+
+  * New upstream version 6.2.0
+  * Add upstream PR for make library private, as not used externally
+  * Remove libcscreensaver0 and gir1.2-cscreensaver-1.0 packages,
+    now private library is in cinnamon-screensaver
+  * Don't install gir file as not used and not needed (Closes: #1059341)
+  * Remove unused lintian overrides
+  * Remove dh-sequence-gir and ${gir:Depends}
+  * Change libexec dir to /usr/libexec
+  * Add d/README.source with a wiki link with details about packaging
+  * Update standards version to 4.7.0, no changes needed
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 16 Aug 2024 13:22:41 +0200
+
+cinnamon-screensaver (6.0.3-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 31 Mar 2024 19:03:14 +0200
+
+cinnamon-screensaver (6.0.3-1) experimental; urgency=medium
+
+  * New upstream version 6.0.3
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 16 Feb 2024 14:16:16 +0100
+
+cinnamon-screensaver (6.0.2-1) experimental; urgency=medium
+
+  * New upstream version 6.0.2
+  * d/control:
+    - remove gir1.2-accountsservice-1.0 from deps
+    - remove unused librsvg2-bin build-dep
+  * Update symbols
+  * Bump deps and reverse dep breaks to 6.0
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 11 Feb 2024 15:03:03 +0100
+
+cinnamon-screensaver (5.8.1-3) unstable; urgency=medium
+
+  * d/control:
+    - add missed gir packages dependencies to cinnamon-screensaver
+      including the ones that are virtual for now
+    - remove ${gir:Depends} and add gir1.2-gtk-3.0 to
+      gir1.2-cscreensaver-1.0 to avoid unwanted -dev deps
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Tue, 09 Jan 2024 20:20:07 +0100
+
+cinnamon-screensaver (5.8.1-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 29 Sep 2023 13:31:52 +0200
+
+cinnamon-screensaver (5.8.1-1) experimental; urgency=medium
+
+  * New upstream version 5.8.1
+  * d/control:
+    - add missing dependency on x11-utils
+    - remove old breaks/replaces older that oldstable
+    - bump reverse dep breaks to 5.8
+    - bump cinnamon-desktop deps to 5.8
+  * Update symbols
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 14 Jul 2023 13:20:56 +0200
+
+cinnamon-screensaver (5.6.3-1) unstable; urgency=medium
+
+  * New upstream version 5.6.3
+  * Update standards version to 4.6.2, no changes needed
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 08 Jan 2023 17:21:20 +0100
+
+cinnamon-screensaver (5.6.2-1) unstable; urgency=medium
+
+  * New upstream version 5.6.2
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Mon, 26 Dec 2022 15:00:51 +0100
+
+cinnamon-screensaver (5.6.1-1) unstable; urgency=medium
+
+  [ Joshua Peisach ]
+  * New upstream version 5.6.1
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster
+
+  [ Fabio Fantoni ]
+  * Update symbols
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 25 Nov 2022 18:31:23 +0100
+
+cinnamon-screensaver (5.4.4-1) unstable; urgency=medium
+
+  * New upstream version 5.4.4
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 21 Aug 2022 21:17:09 +0200
+
+cinnamon-screensaver (5.4.2-1) unstable; urgency=medium
+
+  * New upstream version 5.4.2
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 07 Aug 2022 20:47:27 +0200
+
+cinnamon-screensaver (5.4.1-3) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 29 Jul 2022 11:43:24 +0200
+
+cinnamon-screensaver (5.4.1-2) experimental; urgency=medium
+
+  * To solve policy issue with libcscreensaver0 package add
+    gir1.2-cscreensaver-1.0 package for move gir files out
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Wed, 27 Jul 2022 13:29:51 +0200
+
+cinnamon-screensaver (5.4.1-1) experimental; urgency=medium
+
+  * New upstream version 5.4.1
+  * d/control: add libxdo-dev to build-deps
+  * Update d/copyright
+  * Update symbols
+  * Add lintian override about doc/dbus-interface.html
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 22 Jul 2022 21:46:19 +0200
+
+cinnamon-screensaver (5.4.0-1) unstable; urgency=medium
+
+  * New upstream version 5.4.0
+  * Simplify d/watch
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Fri, 01 Jul 2022 14:15:55 +0200
+
+cinnamon-screensaver (5.2.1-1) unstable; urgency=medium
+
+  * New upstream version 5.2.1
+  * Update d/copyright
+
+ -- Fabio Fantoni <fantonifabio@tiscali.it>  Sun, 13 Feb 2022 13:11:41 +0100
+
+cinnamon-screensaver (5.2.0-2) unstable; urgency=medium
+
+  * add myself to uploaders
+  * prepare upload to unstable
+
+ -- Christoph Martin <martin@uni-mainz.de>  Wed, 26 Jan 2022 09:02:03 +0100
+
+cinnamon-screensaver (5.2.0-1) experimental; urgency=medium
+
+  [ Joshua Peisach ]
+  * New upstream version 5.2.0
+  * Add missing libcscreensaver0 symbols file
+  * Add dh-sequence-gir to build deps
+  * Bump cinnamon deps and breaks to 5.2x
+
+  [ Fabio Fantoni ]
+  * use dh-sequence-python3
+
+ -- Joshua Peisach <itzswirlz2020@outlook.com>  Fri, 26 Nov 2021 11:46:55 -0500
+
 cinnamon-screensaver (5.0.7-1) unstable; urgency=medium
 
   * New upstream version 5.0.7 (Closes: #998410)

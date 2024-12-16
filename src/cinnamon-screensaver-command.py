@@ -4,6 +4,8 @@ import gi
 gi.require_version('CScreensaver', '1.0')
 
 from gi.repository import GLib, CScreensaver, Gio
+import os
+import sys
 import signal
 import argparse
 import gettext
@@ -60,7 +62,7 @@ class ScreensaverCommand:
             quit()
 
         if args.action_id == Action.VERSION:
-            print("cinnamon-screensaver %s" % (config.VERSION))
+            print("cinnamon-screensaver %s" % config.VERSION)
             quit()
 
         self.action_id = args.action_id
@@ -91,11 +93,10 @@ class ScreensaverCommand:
     def _on_proxy_ready(self, object, result, data=None):
         try:
             self.proxy = CScreensaver.ScreenSaverProxy.new_for_bus_finish(result)
-        except:
-            print("Can't connect to screensaver!")
+            self.perform_action()
+        except GLib.Error as e:
+            print("Can't connect to screensaver: %d - %s" % (e.code, e.message))
             self.mainloop.quit()
-
-        self.perform_action()
 
     def perform_action(self):
         if self.action_id == Action.EXIT:
@@ -121,7 +122,6 @@ class ScreensaverCommand:
         self.mainloop.quit()
 
 if __name__ == "__main__":
-
     ml = GLib.MainLoop.new(None, True)
     main = ScreensaverCommand(ml)
 

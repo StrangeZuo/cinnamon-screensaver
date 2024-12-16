@@ -7,24 +7,25 @@ Uploaders:
  Margarita Manterola <marga@debian.org>,
  Fabio Fantoni <fantonifabio@tiscali.it>,
  Joshua Peisach <itzswirlz2020@outlook.com>,
- Norbert Preining <norbert@preining.info>
+ Norbert Preining <norbert@preining.info>,
+ Christoph Martin <martin@uni-mainz.de>,
 Build-Depends:
  debhelper-compat (= 13),
- dh-python,
- gnome-pkg-tools (>= 0.10),
+ dh-sequence-python3,
+ gnome-pkg-tools,
  gobject-introspection,
- intltool (>= 0.40.0),
+ intltool,
  libdbus-1-dev,
  libgirepository1.0-dev,
- libglib2.0-dev (>= 2.37.3),
- libgtk-3-dev (>= 3.22),
+ libglib2.0-dev,
+ libgtk-3-dev,
  libpam0g-dev,
- librsvg2-bin,
+ libxdo-dev,
  libxext-dev,
  meson,
  python3,
 Rules-Requires-Root: no
-Standards-Version: 4.6.0.1
+Standards-Version: 4.7.0
 Homepage: http://cinnamon.linuxmint.com/
 Vcs-Browser: https://salsa.debian.org/cinnamon-team/cinnamon-screensaver
 Vcs-Git: https://salsa.debian.org/cinnamon-team/cinnamon-screensaver.git
@@ -33,46 +34,34 @@ Package: cinnamon-screensaver
 Architecture: any
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
- cinnamon-desktop-data (>= 5.0),
- gir1.2-accountsservice-1.0,
- gir1.2-cinnamondesktop-3.0 (>= 5.0),
+ cinnamon-desktop-data (>= 6.0),
+ gir1.2-caribou-1.0,
+ gir1.2-cinnamondesktop-3.0 (>= 6.0),
+ gir1.2-gdk-3.0,
+ gir1.2-gdkpixbuf-2.0,
+ gir1.2-gio-2.0,
  gir1.2-gkbd-3.0,
  gir1.2-glib-2.0,
+ gir1.2-gobject-2.0,
  gir1.2-gtk-3.0,
- gir1.2-xapp-1.0 (>= 1.2),
+ gir1.2-pango-1.0,
+ gir1.2-xapp-1.0,
  iso-flags-png-320x240,
- libcscreensaver0 (= ${binary:Version}),
  python3-gi,
  python3-gi-cairo,
  python3-setproctitle,
- python3-xapp (>= 1.2),
+ python3-xapp,
  python3-xlib,
+ x11-utils,
  ${misc:Depends},
  ${python3:Depends},
  ${shlibs:Depends},
 Recommends: libpam-gnome-keyring
 Breaks:
- cinnamon (<< 5.0~),
- cinnamon-core (<< 5.0~),
- cinnamon-screensaver-pam-helper (<< 3.8),
- cinnamon-screensaver-webkit-plugin (<< 3.9),
- cinnamon-screensaver-x-plugin (<< 3.9)
-Replaces:
- cinnamon-screensaver-pam-helper (<< 3.8),
- cinnamon-screensaver-webkit-plugin (<< 3.9),
- cinnamon-screensaver-x-plugin (<< 3.9)
+ cinnamon (<< 6.0~),
+ cinnamon-core (<< 5.2~),
+ gir1.2-cscreensaver-1.0 (<< ${source:Version}),
+ libcscreensaver0 (<< ${source:Version}),
 Description: Cinnamon screen saver and locker
  cinnamon-screensaver is a screen saver and locker that aims to have simple,
  sane and secure defaults, and be well integrated with the Cinnamon desktop.
-
-Package: libcscreensaver0
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${gir:Depends}, ${misc:Depends}, ${shlibs:Depends}
-Description: library and introspection data used by cinnamon-screensaver
- cinnamon-screensaver is a screen saver and locker that aims to have simple,
- sane and secure defaults, and be well integrated with the Cinnamon desktop.
- .
- This package contains the library used by the screensaver.

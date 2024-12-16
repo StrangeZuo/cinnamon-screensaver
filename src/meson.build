@@ -8,17 +8,6 @@ subdir('widgets')
 config_py = configure_file(
   output: 'config.py',
   input: 'config.py.in',
-  # meson 0.49
-  #configuration: {
-  #  'prefix': prefix,
-  #  'datadir': datadir,
-  #  'pkgdatadir': pkgdatadir,
-  #  'libexecdir': libexecdir,
-  #  'libdir': libdir,
-  #  'PACKAGE': meson.project_name(),
-  #  'VERSION': meson.project_version(),
-  #  'GETTEXT_PACKAGE': meson.project_name()
-  #}
   configuration: misc_conf
 )
 
@@ -49,18 +38,33 @@ app_css = [
   'cinnamon-screensaver.css',
 ]
 
+install_data(app_py + app_css,
+  install_dir: pkgdatadir
+)
+
 app_scripts = [
   ['cinnamon-screensaver-main.py', 'cinnamon-screensaver'],
   ['cinnamon-screensaver-command.py', 'cinnamon-screensaver-command']
 ]
 
-install_data(app_py + app_css,
-  install_dir: pkgdatadir
-)
-
 foreach script : app_scripts
-  install_data(script[0], install_dir: pkgdatadir)
-  meson.add_install_script('sh', '-c', 'mkdir -p "$DESTDIR/@0@"'.format(bindir))
-  meson.add_install_script('sh', '-c',
-    'ln -sf "@0@" "$DESTDIR/@1@"'.format(join_paths(pkgdatadir, script[0]), join_paths(bindir, script[1])))
+  prefix_info = configuration_data()
+  prefix_info.set('install_dir', pkgdatadir)
+  prefix_info.set('target', script[0])
+  prefix_info.set('pkglibdir', pkglibdir)
+  prefix_info.set('typelibdir', typelibdir)
+
+  bin_file = configure_file(
+    input : 'binfile.in',
+    output: script[1],
+    configuration: prefix_info,
+    install_dir: get_option('bindir'),
+    install_mode: 'rwxr-xr-x'
+  )
+
+  install_data(
+      script[0],
+      install_dir: pkgdatadir,
+      install_mode: 'rwxr-xr-x'
+  )
 endforeach

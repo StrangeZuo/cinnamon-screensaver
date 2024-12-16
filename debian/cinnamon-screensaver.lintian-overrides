@@ -1,0 +1,2 @@
+# we are using internal private library
+cinnamon-screensaver: custom-library-search-path RUNPATH /usr/libexec/cinnamon-screensaver [*]

@@ -1,4 +1,4 @@
-project('cinnamon-screensaver', 'c', version: '5.0.7', meson_version: '>=0.46.0')
+project('cinnamon-screensaver', 'c', version : '6.4.0', meson_version : '>=0.56.0')
 
 cc = meson.get_compiler('c')
 
@@ -14,6 +14,9 @@ bindir = join_paths(prefix, get_option('bindir'))
 datadir = join_paths(prefix, get_option('datadir'))
 pkgdatadir = join_paths(datadir, meson.project_name())
 libexecdir = join_paths(prefix, get_option('libexecdir'))
+pkglibdir = join_paths(libexecdir, meson.project_name())
+typelibdir = join_paths(pkglibdir, 'girepository-1.0')
+
 libdir = join_paths(prefix, get_option('libdir'))
 #needed?
 sysconfdir = join_paths(prefix, get_option('sysconfdir'))
@@ -24,10 +27,10 @@ localedir = join_paths(prefix, get_option('localedir'))
 # and 0.49 for using them in configure_file
 misc_conf = configuration_data()
 misc_conf.set('prefix', prefix)
-misc_conf.set('EXPANDED_BINDIR', bindir)
+misc_conf.set('bindir', bindir)
 misc_conf.set('datadir', datadir)
 misc_conf.set('pkgdatadir', pkgdatadir)
-misc_conf.set('libexecdir', libexecdir)
+misc_conf.set('pkglibdir', pkglibdir)
 misc_conf.set('libdir', libdir)
 misc_conf.set('PACKAGE', meson.project_name())
 misc_conf.set('VERSION', meson.project_version())
@@ -36,6 +39,7 @@ misc_conf.set('GETTEXT_PACKAGE', meson.project_name())
 gtk = dependency('gtk+-3.0')
 glib = dependency('glib-2.0')
 gio = dependency('gio-2.0')
+gio_unix = dependency('gio-unix-2.0')
 gthread = dependency('gthread-2.0')
 gobject = dependency('gobject-2.0')
 gdk = dependency('gdk-x11-3.0')
@@ -43,7 +47,13 @@ x11 = dependency('x11')
 xext = dependency('xext')
 xrandr = dependency('xrandr', required: false)
 m = cc.find_library('m')
-dbus_services_dir = dependency('dbus-1').get_pkgconfig_variable('session_bus_services_dir', define_variable: ['datadir', datadir])
+
+xdo = dependency('libxdo', required: false)
+if not xdo.found()
+  xdo = cc.find_library('xdo')
+endif
+
+dbus_services_dir = dependency('dbus-1').get_variable(pkgconfig: 'session_bus_services_dir', pkgconfig_define: ['datadir', datadir])
 
 # check for symbols and headers
 foreach header : [
@@ -134,6 +144,18 @@ if not get_option('deprecated-warnings')
     language: 'c',
   )
 endif
+
+# add_global_arguments(
+#     [
+#         '-Wall',
+#         '-Wextra',
+#         '-Wno-unused-parameter',
+#         '-Wmissing-prototypes',
+#         '-Wstrict-prototypes',
+#         '-pedantic'
+#     ],
+#     language: 'c'
+# )
 
 subdir('install-scripts')
 subdir('libcscreensaver')

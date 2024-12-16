@@ -4,12 +4,22 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 export DEB_BUILD_MAINT_OPTIONS = hardening=+bindnow
 
 %:
-	dh $@ --with=python3,gir
+	dh $@
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
 	    -D use-debian-pam=true \
-	    --libexecdir=lib/$(DEB_HOST_MULTIARCH)/cinnamon-screensaver
+	    --libexecdir=libexec
 
 override_dh_python3:
 	dh_python3 usr/share/cinnamon-screensaver
+
+override_dh_auto_install:
+	: # for specify files to install even if only one binary, will be default in compat 15
+	dh_auto_install --destdir=debian/tmp
+
+execute_after_dh_fixperms:
+	: # fix executable libraries
+	chmod 0644 debian/cinnamon-screensaver/usr/libexec/cinnamon-screensaver/girepository-1.0/CScreensaver-1.0.typelib
+	chmod 0644 debian/cinnamon-screensaver/usr/libexec/cinnamon-screensaver/libcscreensaver.so
+

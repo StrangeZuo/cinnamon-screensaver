@@ -77,9 +77,14 @@ void                         cs_screen_get_smallest_monitor_sizes (CsScreen *scr
 
 void                         cs_screen_place_pointer_in_primary_monitor (CsScreen *screen);
 
+void                         cs_screen_set_net_wm_name (GdkWindow   *window,
+                                                        const gchar *name);
+
+gchar                       *cs_screen_get_net_wm_name (gulong       xwindow);
+
 void                         cs_screen_reset_screensaver (void);
 
-void                         cs_screen_nuke_focus (void);
+gint                         cs_screen_get_global_scale (void);
 
 G_END_DECLS
 

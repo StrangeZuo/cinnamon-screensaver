@@ -174,16 +174,16 @@
 }
 
 .csstage .trackname {
-    font-family: monospace;
-    font-size: 12px;
+    font-family: ubuntu;
+    font-size: 14px;
     text-shadow: 1px 1px alpha(black, 0.8);
     background-image: none;
     background-color: transparent;
 }
 
 .csstage .albumartist {
-    font-family: monospace;
-    font-size: 8px;
+    font-family: ubuntu;
+    font-size: 10px;
     text-shadow: 1px 1px alpha(black, 0.8);
     background-image: none;
     background-color: transparent;

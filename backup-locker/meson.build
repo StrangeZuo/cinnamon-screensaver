@@ -9,8 +9,6 @@ bl_config = configure_file(output : 'config.h',
 
 bl_sources = [
 'cs-backup-locker.c',
-'event-grabber.c',
-'event-grabber.h'
 ]
 
 backup_locker = executable('cs-backup-locker',
@@ -18,7 +16,8 @@ backup_locker = executable('cs-backup-locker',
   include_directories: inc,
   dependencies: [x11, gtk, glib],
   link_with: libcscreensaver,
-  install_dir: libexecdir,
+  install_rpath: pkglibdir,
+  install_dir: pkglibdir,
   install: true
 )
 

@@ -3,6 +3,7 @@
 import gi
 
 from util import trackers, settings
+from util.utils import DEBUG
 import status
 
 # Watch for, and kill, mate- and gnome-screensaver in case they're activated by a program
@@ -14,7 +15,7 @@ NameBlocker = _NameBlocker()
 # clients that the screensaver initializes, that can never fail.  The actual connection
 # business to the various dbus address is performed asynchronously from within each client.
 # The following clients can fail to establish with their respective dbus interfaces without
-# competely breaking the program (or at least that's what we're after) - it just means that
+# completely breaking the program (or at least that's what we're after) - it just means that
 # depending on what fails, you may end up without keyboard shortcut support, or a battery
 # widget, etc...
 from dbusdepot.cinnamonClient import CinnamonClient as _CinnamonClient
@@ -23,6 +24,7 @@ from dbusdepot.uPowerClient import UPowerClient as _UPowerClient
 from dbusdepot.keybindingHandlerClient import KeybindingHandlerClient as _KeybindingHandlerClient
 from dbusdepot.mediaPlayerWatcher import MediaPlayerWatcher as _MediaPlayerWatcher
 from dbusdepot.accountsServiceClient import AccountsServiceClient as _AccountsServiceClient
+from dbusdepot.muffinClient import MuffinClient as _MuffinClient
 
 CinnamonClient = _CinnamonClient()
 SessionClient = _SessionClient()
@@ -52,6 +54,10 @@ gi.require_version('XApp', '1.0')
 from gi.repository import XApp
 KeyboardLayoutController = XApp.KbdLayoutController()
 
+# This sets up synchronously, as we need to know the fractional scaling state before
+# setting up the screensaver.
+MuffinClient = _MuffinClient()
+
 # The login client is a bit different - we can have either logind or ConsoleKit.
 # So, we have to do a bit more work to determine which one we're going to use.
 # This doesn't really need to impact the main startup business though - whichever
@@ -70,7 +76,7 @@ class LoginClientResolver:
         self.try_logind()
 
     def try_logind(self):
-        print("Trying to connect to logind...")
+        print("Trying to connect to logind...", flush=True)
 
         login_client = LogindClient()
         trackers.con_tracker_get().connect(login_client,
@@ -83,15 +89,15 @@ class LoginClientResolver:
                                               self.on_logind_startup_result)
 
         if success:
-            print("Successfully using logind")
+            print("Successfully using logind", flush=True)
             self.login_client = client
             self.setup_manager_connections()
         else:
-            print("Failed to connect to logind, or it doesn't exist.")
+            print("Failed to connect to logind, or it doesn't exist.", flush=True)
             self.try_console_kit()
 
     def try_console_kit(self):
-        print("Trying to connect to ConsoleKit...")
+        print("Trying to connect to ConsoleKit...", flush=True)
 
         login_client = ConsoleKitClient()
         trackers.con_tracker_get().connect(login_client,
@@ -104,15 +110,15 @@ class LoginClientResolver:
                                               self.on_consolekit_startup_result)
 
         if success:
-            print("Successfully using ConsoleKit")
+            print("Successfully using ConsoleKit", flush=True)
             self.login_client = client
             self.setup_manager_connections()
         else:
-            print("Failed to connect to ConsoleKit, or it doesn't exist.\n")
+            print("Failed to connect to ConsoleKit, or it doesn't exist.\n", flush=True)
 
-            print("Unable to connect to either logind or ConsoleKit.  Certain things will not work,")
-            print("such as automatic unlocking when switching users from the desktop manager,")
-            print("or locking in appropriate power/system-management events.")
+            print("Unable to connect to either logind or ConsoleKit.  Certain things will not work,", flush=True)
+            print("such as automatic unlocking when switching users from the desktop manager,", flush=True)
+            print("or locking in appropriate power/system-management events.", flush=True)
 
     def setup_manager_connections(self):
         trackers.con_tracker_get().connect(self.login_client,
@@ -126,20 +132,16 @@ class LoginClientResolver:
                                            self.on_session_manager_active)
 
     def on_session_manager_lock(self, client):
-        if status.Debug:
-            print("Received Lock from session manager")
+        DEBUG("Received Lock from session manager")
 
         self.manager.lock()
 
     def on_session_manager_unlock(self, client):
-        if status.Debug:
-            print("Received Unlock from session manager")
+        DEBUG("Received Unlock from session manager")
 
         self.manager.unlock()
 
     def on_session_manager_active(self, client):
-        if status.Debug:
-            print("Received Active changed from session manager")
+        DEBUG("Received Active changed from session manager")
 
-        self.manager.update_stage()
-        self.manager.simulate_user_activity()
+        self.manager.refresh_stage()

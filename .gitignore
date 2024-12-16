@@ -1,1 +1,11 @@
-.pc/
+obj-*
+debian/tmp
+debian/libcscreensaver0
+debian/libcscreensaver-dbg
+debian/cinnamon-screensaver
+*.debhelper*
+*.substvars
+debian/debhelper-build-stamp
+debian/files
+
+

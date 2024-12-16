@@ -134,12 +134,11 @@ class UnlockDialog(BaseWindow):
         self.update_realname_label()
 
         self.account_client = singletons.AccountsServiceClient
-        if self.account_client.is_loaded:
-            self.on_account_client_loaded(self.account_client)
-        else:
-            trackers.con_tracker_get().connect(self.account_client,
-                                               "account-loaded",
-                                               self.on_account_client_loaded)
+
+        self.set_user_details()
+        trackers.con_tracker_get().connect(self.account_client,
+                                           "accounts-ready",
+                                           self.on_accounts_ready)
 
         self.keymap = Gdk.Keymap.get_default()
 
@@ -175,11 +174,6 @@ class UnlockDialog(BaseWindow):
 
     def initialize_auth_client(self):
         return self.auth_client.initialize()
-
-    def cancel_auth_client(self):
-        self.clear_entry()
-
-        self.auth_client.cancel()
 
     def on_authentication_success(self, auth_client):
         self.set_busy(False)
@@ -233,7 +227,8 @@ class UnlockDialog(BaseWindow):
         """
         Clears the auth message text if we have any.
         """
-        self.auth_message_label.set_text("")
+        self.auth_client.cancel()
+        self.clear_entry()
 
     def queue_key_event(self, event):
         """
@@ -255,16 +250,23 @@ class UnlockDialog(BaseWindow):
         else:
             self.capslock_label.set_text("")
 
-    def on_account_client_loaded(self, client):
+    def on_accounts_ready(self, client):
         """
         Handler for the AccountsService - requests the user real name and .face image.
         """
-        if client.get_real_name() != None:
-            self.real_name = client.get_real_name()
+        trackers.con_tracker_get().disconnect(self.account_client,
+                                              "accounts-ready",
+                                              self.on_accounts_ready)
+
+        self.set_user_details()
+
+    def set_user_details(self):
+        if self.account_client.get_real_name() is not None:
+            self.real_name = self.account_client.get_real_name()
             self.update_realname_label()
 
-        if client.get_face_path() != None:
-            self.face_image.set_from_path(client.get_face_path())
+        if self.account_client.get_face_path() is not None:
+            self.face_image.set_from_path(self.account_client.get_face_path())
             self.face_image.show()
 
     def on_password_entry_text_changed(self, editable):
@@ -342,7 +344,7 @@ class UnlockDialog(BaseWindow):
     def on_blink_tick(self, data=None):
         window = self.get_window()
 
-        if window == None:
+        if window is None:
             return False
 
         x, y = window.get_position()

@@ -42,7 +42,6 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <glib/gi18n-lib.h>
-#include <gtk/gtk.h>
 
 #include "cs-auth.h"
 
@@ -76,6 +75,7 @@
 # define PAM_STRERROR(pamh, status) pam_strerror((status))
 #endif /* !PAM_STRERROR_TWO_ARGS */
 
+static GMainLoop    *auth_loop = NULL;
 static gboolean      verbose_enabled = FALSE;
 static pam_handle_t *pam_handle = NULL;
 static gboolean      did_we_ask_for_password = FALSE;
@@ -234,7 +234,7 @@ cs_auth_run_message_handler (struct pam_closure *c,
         g_idle_add ((GSourceFunc) cs_auth_queued_message_handler, &data);
 
         if (cs_auth_get_verbose ()) {
-                DEBUG ("Waiting for respose to message style %d: '%s'\n", style, msg);
+                DEBUG ("cs-auth-pam (pid %i): Waiting for response to message style %d: '%s'\n", getpid (), style, msg);
         }
 
         /* Wait for the response
@@ -244,7 +244,7 @@ cs_auth_run_message_handler (struct pam_closure *c,
         g_mutex_unlock (message_handler_mutex);
 
         if (cs_auth_get_verbose ()) {
-                DEBUG ("Got respose to message style %d: interrupt:%d\n", style, data.should_interrupt_stack);
+                DEBUG ("cs-auth-pam (pid %i): Got response to message style %d: interrupt:%d\n", getpid (), style, data.should_interrupt_stack);
         }
 
         return data.should_interrupt_stack == FALSE;
@@ -410,7 +410,8 @@ create_pam_handle (const char      *username,
 	}
 
         if (cs_auth_get_verbose ()) {
-                DEBUG ("pam_start (\"%s\", \"%s\", ...) ==> %d (%s)\n",
+                DEBUG ("cs-auth-pam (pid %i): pam_start (\"%s\", \"%s\", ...) ==> %d (%s)\n",
+                           getpid (),
                            service,
                            username,
                            status,
@@ -482,8 +483,8 @@ set_pam_error (GError **error,
 
 }
 
-static int
-cs_auth_thread_func (int auth_operation_fd)
+static gpointer
+cs_auth_thread_func (gpointer auth_operation_fd_ptr)
 {
         static const int flags = 0;
         int              status;
@@ -491,6 +492,7 @@ cs_auth_thread_func (int auth_operation_fd)
         struct timespec  timeout;
         sigset_t         set;
         const void      *p;
+        int              auth_operation_fd = GPOINTER_TO_INT(auth_operation_fd_ptr);
 
         timeout.tv_sec = 0;
         timeout.tv_nsec = 1;
@@ -569,7 +571,7 @@ cs_auth_thread_func (int auth_operation_fd)
          */
         close (auth_operation_fd);
 
-        return status;
+        return GINT_TO_POINTER(status);
 }
 
 static gboolean
@@ -578,7 +580,7 @@ cs_auth_loop_quit (GIOChannel  *source,
 		   gboolean    *thread_done)
 {
         *thread_done = TRUE;
-        gtk_main_quit ();
+        g_main_loop_quit (auth_loop);
         return FALSE;
 }
 
@@ -627,16 +629,16 @@ cs_auth_pam_verify_user (pam_handle_t *handle,
         watch_id = g_io_add_watch (channel, G_IO_ERR | G_IO_HUP,
                                    (GIOFunc) cs_auth_loop_quit, &thread_done);
 
-        auth_thread = g_thread_create ((GThreadFunc) cs_auth_thread_func,
-                                       GINT_TO_POINTER (auth_operation_fds[1]),
-                                       TRUE, NULL);
+        auth_thread = g_thread_new ("cs-auth-verify-user",
+                                    (GThreadFunc) cs_auth_thread_func,
+                                    GINT_TO_POINTER (auth_operation_fds[1]));
 
         if (auth_thread == NULL) {
                 goto out;
         }
 
-        gtk_main ();
-
+        auth_loop = g_main_loop_new (NULL, FALSE);
+        g_main_loop_run (auth_loop);
         /* if the event loop was quit before the thread is done then we can't
          * reap the thread without blocking on it finishing.  The
          * thread may not ever finish though if the pam module is blocking.

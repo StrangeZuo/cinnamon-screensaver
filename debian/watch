@@ -1,3 +1,2 @@
 version=4
-opts="filenamemangle=s/.*\/(.*)/cinnamon-screensaver-$1/" \
-    https://github.com/linuxmint/cinnamon-screensaver/tags .*/(\d.*)\.(?:tgz|tar\.(?:gz|bz2|xz))
+https://github.com/linuxmint/cinnamon-screensaver/tags (?:.*?/)?v?(\d[\d.]*)@ARCHIVE_EXT@

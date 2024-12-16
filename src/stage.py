@@ -3,7 +3,7 @@
 import gi
 gi.require_version('CDesktopEnums', '3.0')
 
-from gi.repository import Gtk, Gdk, CScreensaver, CDesktopEnums, GObject
+from gi.repository import GLib, Gtk, Gdk, CScreensaver, CDesktopEnums, GObject
 import random
 
 import status
@@ -19,6 +19,7 @@ from osk import OnScreenKeyboard
 from floating import ALIGNMENTS
 from util import utils, trackers, settings
 from util.eventHandler import EventHandler
+from util.utils import DEBUG
 
 class Stage(Gtk.Window):
     """
@@ -31,9 +32,13 @@ class Stage(Gtk.Window):
     It is Gtk.WindowType.POPUP to avoid being managed/composited by muffin,
     and to prevent animation during its creation and destruction.
 
-    The Stage reponds pretty much only to the instructions of the
+    The Stage responds pretty much only to the instructions of the
     ScreensaverManager.
     """
+    __gsignals__ = {
+        'needs-refresh': (GObject.SignalFlags.RUN_LAST, None, ()),
+    }
+
     def __init__(self, manager, away_message):
         if status.InteractiveDebug:
             Gtk.Window.__init__(self,
@@ -55,8 +60,9 @@ class Stage(Gtk.Window):
         self.destroying = False
 
         self.manager = manager
-        status.screen = CScreensaver.Screen.new(status.Debug)
         self.away_message = away_message
+
+        self.activate_callback = None
 
         self.monitors = []
         self.last_focus_monitor = -1
@@ -67,8 +73,6 @@ class Stage(Gtk.Window):
         self.audio_panel = None
         self.info_panel = None
         self.osk = None
-
-        self.stage_refresh_id = 0
 
         self.floaters = []
 
@@ -89,7 +93,7 @@ class Stage(Gtk.Window):
                         Gdk.EventMask.FOCUS_CHANGE_MASK)
 
         c = Gdk.RGBA(0, 0, 0, 0)
-        self.override_background_color (Gtk.StateFlags.NORMAL, c);
+        self.override_background_color(Gtk.StateFlags.NORMAL, c)
 
         self.update_geometry()
 
@@ -154,13 +158,9 @@ class Stage(Gtk.Window):
         Wallpapers are secondary.
         """
 
-        if status.Debug:
-            print("Stage: Received screen size-changed signal, refreshing stage")
+        DEBUG("Stage: Received screen size-changed signal, refreshing stage")
 
-        self.update_geometry()
-        self.move_onscreen()
-        self.overlay.queue_resize()
-
+        self.emit("needs-refresh")
 
     def on_monitors_changed(self, screen, data=None):
         """
@@ -168,68 +168,20 @@ class Stage(Gtk.Window):
         as on_screen_size_changed), and follow up at idle with actual monitor view
         refreshes (wallpapers.)
         """
-        if status.Debug:
-            print("Stage: Received screen monitors-changed signal, refreshing stage")
+        DEBUG("Stage: Received screen monitors-changed signal, refreshing stage")
 
-        self.update_geometry()
-        self.move_onscreen()
-        self.overlay.queue_resize()
-
-        Gdk.flush()
-
-        self.queue_refresh_stage()
+        self.emit("needs-refresh")
 
     def on_composited_changed(self, screen, data=None):
         if self.get_realized():
-            self.manager.kill_fallback_window()
+            DEBUG("Stage: Received screen composited-changed signal, refreshing stage")
 
-            user_time = self.get_display().get_user_time()
-
-            self.hide()
-            self.unrealize()
-
-            self.realize()
-
-            self.get_window().set_user_time(user_time)
-            self.show()
-
-            if status.Locked:
-                self.manager.spawn_fallback_window()
-
-            GObject.idle_add(self.manager.grab_stage)
+            self.emit("needs-refresh")
 
     def on_grab_broken_event(self, widget, event, data=None):
         GObject.idle_add(self.manager.grab_stage)
 
         return False
-
-    def queue_refresh_stage(self):
-        """
-        Queues a complete refresh of the stage, resizing the screen if necessary,
-        reconstructing the individual monitor objects, etc...
-        """
-        if self.stage_refresh_id > 0:
-            GObject.source_remove(self.stage_refresh_id)
-            self.stage_refresh_id = 0
-
-        self.stage_refresh_id = GObject.idle_add(self._update_full_stage_on_idle)
-
-    def _update_full_stage_on_idle(self, data=None):
-        self.stage_refresh_id = 0
-
-        self._refresh()
-
-        return False
-
-    def _refresh(self):
-        Gdk.flush()
-        if status.Debug:
-            print("Stage: refresh callback")
-
-        self.update_geometry()
-        self.move_onscreen()
-        self.update_monitors()
-        self.overlay.queue_resize()
 
     def activate(self, callback):
         """
@@ -240,7 +192,10 @@ class Stage(Gtk.Window):
         self.move_onscreen()
         self.show()
 
-        callback()
+        if self.get_realized():
+            callback()
+        else:
+            self.activate_callback = callback
 
     def deactivate(self, callback):
         """
@@ -260,13 +215,18 @@ class Stage(Gtk.Window):
         window = self.get_window()
         utils.override_user_time(window)
 
+        CScreensaver.Screen.set_net_wm_name(window, "cinnamon-screensaver-window")
+
         self.setup_children()
 
-        self.gdk_filter.start()
+        self.gdk_filter.start(singletons.MuffinClient.get_using_fractional_scaling(), status.Debug)
 
         trackers.con_tracker_get().disconnect(self.overlay,
                                               "realize",
                                               self.on_realized)
+
+        if self.activate_callback is not None:
+            self.activate_callback()
 
     def move_onscreen(self):
         w = self.get_window()
@@ -345,39 +305,39 @@ class Stage(Gtk.Window):
             print(e)
 
         try:
-            if self.unlock_dialog != None:
+            if self.unlock_dialog is not None:
                 self.unlock_dialog.destroy()
         except Exception as e:
             print(e)
 
         try:
-            if self.clock_widget != None:
+            if self.clock_widget is not None:
                 self.clock_widget.stop_positioning()
                 self.clock_widget.destroy()
         except Exception as e:
             print(e)
 
         try:
-            if self.albumart_widget != None:
+            if self.albumart_widget is not None:
                 self.albumart_widget.stop_positioning()
                 self.albumart_widget.destroy()
         except Exception as e:
             print(e)
 
         try:
-            if self.info_panel != None:
+            if self.info_panel is not None:
                 self.info_panel.destroy()
         except Exception as e:
             print(e)
 
         try:
-            if self.info_panel != None:
+            if self.info_panel is not None:
                 self.audio_panel.destroy()
         except Exception as e:
             print(e)
 
         try:
-            if self.osk != None:
+            if self.osk is not None:
                 self.osk.destroy()
         except Exception as e:
             print(e)
@@ -398,6 +358,27 @@ class Stage(Gtk.Window):
         Performs all tear-down necessary to destroy the Stage, destroying
         all children in the process, and finally destroying itself.
         """
+
+        trackers.con_tracker_get().disconnect(self.unlock_dialog,
+                                              "inhibit-timeout",
+                                              self.set_timeout_active)
+
+        trackers.con_tracker_get().disconnect(self.unlock_dialog,
+                                              "uninhibit-timeout",
+                                              self.set_timeout_active)
+
+        trackers.con_tracker_get().disconnect(self.unlock_dialog,
+                                              "authenticate-success",
+                                              self.authentication_result_callback)
+
+        trackers.con_tracker_get().disconnect(self.unlock_dialog,
+                                              "authenticate-failure",
+                                              self.authentication_result_callback)
+
+        trackers.con_tracker_get().disconnect(self.unlock_dialog,
+                                              "authenticate-cancel",
+                                              self.authentication_cancel_callback)
+
         trackers.con_tracker_get().disconnect(singletons.Backgrounds,
                                               "changed",
                                               self.on_bg_changed)
@@ -431,7 +412,6 @@ class Stage(Gtk.Window):
                                               self.position_overlay_child)
 
         self.destroy()
-        status.screen = None
 
     def setup_monitors(self):
         """
@@ -485,10 +465,9 @@ class Stage(Gtk.Window):
         Callback for UPower changes, this will make our MonitorViews update
         themselves according to user setting and power state.
         """
-        if status.Debug:
-            print("stage: Power state changed, updating info panel")
+        DEBUG("stage: Power state changed, updating info panel")
 
-        if self.info_panel != None:
+        if self.info_panel is not None:
             self.info_panel.update_visibility()
 
     def setup_clock(self):
@@ -619,7 +598,7 @@ class Stage(Gtk.Window):
         Go back to Sleep if we hit our timer limit
         """
         self.set_timeout_active(None, False)
-        self.manager.cancel_unlock_widget()
+        self.manager.cancel_unlocking()
 
         return False
 
@@ -630,9 +609,9 @@ class Stage(Gtk.Window):
         widget, depending on the outcome.
         """
         if success:
-            if self.clock_widget != None:
+            if self.clock_widget is not None:
                 self.clock_widget.hide()
-            if self.albumart_widget != None:
+            if self.albumart_widget is not None:
                 self.albumart_widget.hide()
             self.unlock_dialog.hide()
             self.manager.unlock()
@@ -640,13 +619,13 @@ class Stage(Gtk.Window):
             self.unlock_dialog.blink()
 
     def authentication_cancel_callback(self, dialog):
-        self.cancel_unlock_widget()
+        self.manager.cancel_unlocking()
 
     def set_message(self, msg):
         """
         Passes along an away-message to the clock.
         """
-        if self.clock_widget != None:
+        if self.clock_widget is not None:
             self.clock_widget.set_message(msg)
 
     def initialize_pam(self):
@@ -665,9 +644,9 @@ class Stage(Gtk.Window):
 
         utils.clear_clipboards(self.unlock_dialog)
 
-        if self.clock_widget != None:
+        if self.clock_widget is not None:
             self.clock_widget.stop_positioning()
-        if self.albumart_widget != None:
+        if self.albumart_widget is not None:
             self.albumart_widget.stop_positioning()
 
         status.Awake = True
@@ -675,52 +654,46 @@ class Stage(Gtk.Window):
         if self.info_panel:
             self.info_panel.refresh_power_state()
 
-        if self.clock_widget != None:
+        if self.clock_widget is not None:
             self.clock_widget.show()
-        if self.albumart_widget != None:
+        if self.albumart_widget is not None:
             self.albumart_widget.show()
 
         self.unlock_dialog.show()
 
-        if self.audio_panel != None:
+        if self.audio_panel is not None:
             self.audio_panel.show_panel()
-        if self.info_panel != None:
+        if self.info_panel is not None:
             self.info_panel.refresh_power_state()
-        if self.osk != None:
+        if self.osk is not None:
             self.osk.show()
 
     def cancel_unlocking(self):
         if self.unlock_dialog:
-            self.unlock_dialog.cancel_auth_client()
-
-    def cancel_unlock_widget(self):
-        """
-        Hide the unlock widget (and others) if the unlock has been canceled
-        """
-        if not status.Awake:
-            return
+            self.unlock_dialog.cancel()
 
         self.set_timeout_active(None, False)
         utils.clear_clipboards(self.unlock_dialog)
 
-        self.unlock_dialog.hide()
-
-        if self.clock_widget != None:
+        if self.unlock_dialog is not None:
+            self.unlock_dialog.hide()
+        if self.clock_widget is not None:
             self.clock_widget.hide()
-        if self.albumart_widget != None:
+        if self.albumart_widget is not None:
             self.albumart_widget.hide()
-        if self.audio_panel != None:
+        if self.audio_panel is not None:
             self.audio_panel.hide()
-        if self.info_panel != None:
+        if self.info_panel is not None:
             self.info_panel.hide()
-        if self.osk != None:
+        if self.osk is not None:
             self.osk.hide()
 
-        self.unlock_dialog.cancel()
         status.Awake = False
 
         self.update_monitor_views()
-        self.info_panel.refresh_power_state()
+
+        if self.info_panel is not None:
+            self.info_panel.refresh_power_state()
 
     def update_monitor_views(self):
         """
@@ -729,9 +702,9 @@ class Stage(Gtk.Window):
         """
 
         if not status.Awake:
-            if self.clock_widget != None and settings.get_show_clock():
+            if self.clock_widget is not None and settings.get_show_clock():
                 self.clock_widget.start_positioning()
-            if self.albumart_widget != None and settings.get_show_albumart():
+            if self.albumart_widget is not None and settings.get_show_albumart():
                 self.albumart_widget.start_positioning()
 
         for monitor in self.monitors:
@@ -775,8 +748,11 @@ class Stage(Gtk.Window):
         else:
             self.rect = status.screen.get_screen_geometry()
 
-        if status.Debug:
-            print("Stage.update_geometry - new backdrop position: %d, %d  new size: %d x %d" % (self.rect.x, self.rect.y, self.rect.width, self.rect.height))
+            scale = status.screen.get_global_scale()
+            self.rect.width *= scale
+            self.rect.height *= scale
+
+        DEBUG("Stage.update_geometry - new backdrop position: %d, %d  new size: %d x %d" % (self.rect.x, self.rect.y, self.rect.width, self.rect.height))
 
         hints = Gdk.Geometry()
         hints.min_width = self.rect.width
@@ -900,10 +876,10 @@ class Stage(Gtk.Window):
                 unlock_mw, unlock_nw = self.unlock_dialog.get_preferred_width()
                 """
                 If, for whatever reason, we need more than 1/3 of the screen to fully display
-                the unlock dialog, reduce our available region width to accomodate it, reducing
+                the unlock dialog, reduce our available region width to accommodate it, reducing
                 the allocation for the floating widgets as required.
                 """
-                if (unlock_nw > region_w):
+                if unlock_nw > region_w:
                     region_w = (monitor_rect.width - unlock_nw) / 2
 
                 region_h = monitor_rect.height

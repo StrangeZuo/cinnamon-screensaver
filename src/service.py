@@ -8,6 +8,7 @@ from gi.repository import Gtk, CScreensaver, Gio, GObject
 import constants as c
 from manager import ScreensaverManager
 import status
+from util.utils import DEBUG
 
 class ScreensaverService(GObject.Object):
     """
@@ -58,6 +59,14 @@ class ScreensaverService(GObject.Object):
 
         self.interface.export(self.bus, c.SS_PATH)
 
+    def poke_process(self, method_name):
+        if not status.Awake:
+            DEBUG("service: '%s' received, poking application." % method_name)
+
+        app = Gio.Application.get_default()
+        app.hold()
+        app.release()
+
 # Interface handlers
     def handle_lock(self, iface, inv, msg):
         """
@@ -71,6 +80,8 @@ class ScreensaverService(GObject.Object):
         Otherwise, we queue the invocation, and wait for an "active-changed" signal from the manager,
         and then complete the invocations (in the same order they were received.)
         """
+
+        self.poke_process("Lock")
 
         if self.manager.lock(msg):
             iface.complete_lock(inv)
@@ -89,6 +100,8 @@ class ScreensaverService(GObject.Object):
         return True
 
     def handle_set_active(self, iface, inv, active):
+        self.poke_process("SetActive")
+
         if active:
             self.manager.set_active(active)
         else:
@@ -99,6 +112,8 @@ class ScreensaverService(GObject.Object):
         return True
 
     def handle_get_active(self, iface, inv):
+        self.poke_process("GetActive")
+
         active = self.manager.get_active()
 
         iface.complete_get_active(inv, active)
@@ -106,6 +121,8 @@ class ScreensaverService(GObject.Object):
         return True
 
     def handle_get_active_time(self, iface, inv):
+        self.poke_process("GetActiveTime")
+
         atime = self.manager.get_active_time()
 
         iface.complete_get_active_time(inv, atime)
@@ -113,11 +130,12 @@ class ScreensaverService(GObject.Object):
         return True
 
     def handle_simulate_user_activity(self, iface, inv):
+        self.poke_process("SimulateUserActivity")
+
         if self.manager.is_locked():
             self.manager.simulate_user_activity()
         else:
-            if status.Debug:
-                print("Calling XResetScreenSaver");
+            DEBUG("Calling XResetScreenSaver")
 
             CScreensaver.Screen.reset_screensaver()
 

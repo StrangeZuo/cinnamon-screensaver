@@ -34,7 +34,7 @@ enum {
 
 static guint signals [LAST_SIGNAL] = { 0, };
 
-G_DEFINE_TYPE (CsScreen, cs_screen, G_TYPE_OBJECT);
+G_DEFINE_TYPE (CsScreen, cs_screen, G_TYPE_OBJECT)
 
 static gboolean debug_mode = FALSE;
 #define DEBUG(...) if (debug_mode) g_printerr (__VA_ARGS__)
@@ -411,40 +411,75 @@ reload_screen_info (CsScreen *screen)
     screen->rect.height = gdk_screen_get_height (screen->gdk_screen);
 }
 
+static gboolean
+is_full_change (CsScreen *screen)
+{
+    // Check to see if the union of monitor rects is the same size as the screen
+
+    GdkRectangle total_monitors = {0};
+    gint i;
+    gboolean same;
+
+    for (i = 0; i < screen->n_monitor_infos; i++)
+    {
+        CsMonitorInfo info = screen->monitor_infos[i];
+
+        gdk_rectangle_union (&total_monitors, &info.rect, &total_monitors);
+    }
+
+    same = gdk_rectangle_equal (&total_monitors, &screen->rect);
+
+    g_printerr ("Screen rect (%d,%d-%dx%d) and %d monitor rects (%d,%d-%dx%d) %s\n",
+                screen->rect.x, screen->rect.y, screen->rect.width, screen->rect.height,
+                screen->n_monitor_infos,
+                total_monitors.x, total_monitors.y, total_monitors.width, total_monitors.height,
+                same ? "add up, sending change notification" : "DO NOT add up, skipping change notification");
+
+    return same;
+}
+
 static void
 on_monitors_changed (GdkScreen *gdk_screen, gpointer user_data)
 {
-    CsMonitorInfo *old_monitor_infos;
     CsScreen *screen;
+    CsMonitorInfo *old_monitor_infos;
 
     screen = CS_SCREEN (user_data);
 
-    reload_screen_info (screen);
-    g_signal_emit (screen, signals[SCREEN_SIZE_CHANGED], 0);
-
+    DEBUG ("CsScreen received 'monitors-changed' signal from GdkScreen %ld\n", g_get_monotonic_time () / 1000);
     gdk_flush ();
-
-    DEBUG ("CsScreen received 'monitors-changed' signal from GdkScreen\n");
 
     old_monitor_infos = screen->monitor_infos;
     reload_monitor_infos (screen);
-
     g_free (old_monitor_infos);
+    reload_screen_info (screen);
 
-    g_signal_emit (screen, signals[SCREEN_MONITORS_CHANGED], 0);
+    if (is_full_change (screen))
+    {
+        g_signal_emit (screen, signals[SCREEN_MONITORS_CHANGED], 0);
+    }
 }
 
 static void
 on_screen_changed (GdkScreen *gdk_screen, gpointer user_data)
 {
     CsScreen *screen;
+    CsMonitorInfo *old_monitor_infos;
 
     screen = CS_SCREEN (user_data);
 
-    DEBUG ("CsScreen received 'size-changed' signal from GdkScreen\n");
+    DEBUG ("CsScreen received 'size-changed' signal from GdkScreen %ld\n", g_get_monotonic_time () / 1000);
+    gdk_flush ();
 
+    old_monitor_infos = screen->monitor_infos;
+    reload_monitor_infos (screen);
+    g_free (old_monitor_infos);
     reload_screen_info (screen);
-    g_signal_emit (screen, signals[SCREEN_SIZE_CHANGED], 0);
+
+    if (is_full_change (screen))
+    {
+        g_signal_emit (screen, signals[SCREEN_SIZE_CHANGED], 0);
+    }
 }
 
 static void
@@ -788,6 +823,63 @@ cs_screen_place_pointer_in_primary_monitor (CsScreen *screen)
 }
 
 /**
+ * cs_screen_set_net_wm_name:
+ * @window: The #GdkWindow to set the property on
+ * @name: The name.
+ *
+ * Sets _NET_WM_NAME to name on window
+ */
+void
+cs_screen_set_net_wm_name (GdkWindow   *window,
+                           const gchar *name)
+{
+    GdkDisplay *display = gdk_display_get_default ();
+    Window xwindow = gdk_x11_window_get_xid (window);
+
+    XChangeProperty (GDK_DISPLAY_XDISPLAY (display), xwindow,
+                     gdk_x11_get_xatom_by_name_for_display (display, "_NET_WM_NAME"),
+                     gdk_x11_get_xatom_by_name_for_display (display, "UTF8_STRING"), 8,
+                     PropModeReplace, (guchar *)name, strlen (name));
+
+    XFlush(GDK_DISPLAY_XDISPLAY (display));
+}
+
+/**
+ * cs_screen_get_net_wm_name:
+ * @xwindow: The Window (XID) to get the property from.
+ *
+ * Gets the NET_WM_NAME of xwindow
+ * 
+ * returns: (transfer full): The value of NET_WM_NAME.
+ */
+gchar *
+cs_screen_get_net_wm_name (gulong xwindow)
+{
+    GdkDisplay *display = gdk_display_get_default ();
+    Atom net_wm_name_atom;
+    Atom type;
+    int format;
+    unsigned long nitems, after;
+    unsigned char *data = NULL;
+    gchar *name = NULL;
+
+    net_wm_name_atom = XInternAtom(GDK_DISPLAY_XDISPLAY (display), "_NET_WM_NAME", False);
+
+    XGetWindowProperty(GDK_DISPLAY_XDISPLAY (display),
+                       xwindow,
+                       net_wm_name_atom, 0, 256,
+                       False, AnyPropertyType,
+                       &type, &format, &nitems, &after,
+                       &data);
+    if (data) {
+       name = g_strdup((char *) data);
+       XFree(data);
+    }
+
+    return name;
+}
+
+/**
  * cs_screen_reset_screensaver:
  *
  * Resets the screensaver idle timer. If called when the screensaver is active
@@ -800,18 +892,27 @@ cs_screen_reset_screensaver (void)
     XResetScreenSaver (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()));
 }
 
-void
-cs_screen_nuke_focus (void)
+/**
+ * cs_screen_get_global_scale:
+ *
+ * Retrieves the global scale factor from the GdkScreen.
+ *
+ */
+gint
+cs_screen_get_global_scale (void)
 {
-    Window focus = 0;
-    int    rev = 0;
+    GdkScreen *gdkscreen;
+    GValue value = G_VALUE_INIT;
+    gint window_scale = 1;
 
-    DEBUG ("Nuking focus\n");
+    gdkscreen = gdk_screen_get_default ();
 
-    gdk_error_trap_push ();
+    g_value_init (&value, G_TYPE_INT);
 
-    XGetInputFocus (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), &focus, &rev);
-    XSetInputFocus (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), PointerRoot, RevertToNone, CurrentTime);
+    if (gdk_screen_get_setting (gdkscreen, "gdk-window-scaling-factor", &value))
+    {
+        window_scale = g_value_get_int (&value);
+    }
 
-    gdk_error_trap_pop_ignored ();
+    return window_scale;
 }

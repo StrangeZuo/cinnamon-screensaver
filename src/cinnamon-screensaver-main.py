@@ -12,6 +12,7 @@ import gettext
 import argparse
 import os
 import setproctitle
+import sys
 
 import config
 import status
@@ -30,7 +31,7 @@ class Main(Gtk.Application):
     """
     def __init__(self):
         super(Main, self).__init__(application_id="org.cinnamon.ScreenSaver",
-                                   inactivity_timeout=10000,
+                                   inactivity_timeout=30000,
                                    flags=Gio.ApplicationFlags.IS_SERVICE)
 
         # Our service must be set up before we register with the session manager.
@@ -40,7 +41,7 @@ class Main(Gtk.Application):
         pass
 
     def do_startup(self):
-        print("Starting screensaver...")
+        print("Starting screensaver...", flush=True)
         Gtk.Application.do_startup(self)
 
         parser = argparse.ArgumentParser(description='Cinnamon Screensaver')
@@ -54,33 +55,39 @@ class Main(Gtk.Application):
                             help='Display the current version')
         parser.add_argument('--hold', dest='hold', action='store_true',
                             help="Keep the process running." \
-                                 "Normally cinnamon-screensaver will exit after being idle for 10 seconds.")
+                                 "Normally cinnamon-screensaver will exit after being idle for 30 seconds.")
+        parser.add_argument('--no-fallback', dest='no_fallback', action='store_true',
+                            help="Don't spawn a fallback window when locking the screen.")
         args = parser.parse_args()
 
         if settings.get_custom_screensaver() != '':
-            print("custom screensaver selected, exiting cinnamon-screensaver.")
+            print("custom screensaver selected, exiting cinnamon-screensaver.", flush=True)
             quit()
 
         if args.version:
-            print("cinnamon-screensaver %s" % (config.VERSION))
+            print("cinnamon-screensaver %s" % config.VERSION)
             quit()
 
         status.LockEnabled = not args.lock_disabled
         status.Debug = args.debug
         status.InteractiveDebug = args.interactive
+        status.UseFallback = not args.no_fallback
+        # The inactivity-timeout will be ignored until there's been an initial hold. Simply
+        # starting the app and letting it idle will end up with it exiting after 10s no matter
+        # what the timeout.
+        self.hold()
 
-        if args.hold:
-            self.hold()
+        if not args.hold:
+            self.release()
 
         if status.Debug:
-            print("Debug mode active")
+            print("Debug mode active", flush=True)
 
         if args.lock_disabled:
-            print("Locking disabled")
+            print("Locking disabled", flush=True)
 
         # This is here mainly to allow the notification watcher to have a valid status.Debug value
         import singletons
-
         Gtk.Settings.get_default().connect("notify::gtk-theme-name", self.on_theme_changed)
         self.do_style_overrides()
 
@@ -104,7 +111,7 @@ class Main(Gtk.Application):
         css = provider.to_string()
 
         if ".csstage" not in css:
-            print("Cinnamon Screensaver support not found in current theme - adding some...")
+            print("Cinnamon Screensaver support not found in current theme - adding some...", flush=True)
 
             path = os.path.join(config.pkgdatadir, "cinnamon-screensaver.css")
 
@@ -115,17 +122,20 @@ class Main(Gtk.Application):
             if "@define-color theme_selected_bg_color" in css:
                 pass
             elif "@define-color selected_bg_color" in css:
-                print("replacing theme_selected_bg_color with selected_bg_color")
+                print("replacing theme_selected_bg_color with selected_bg_color", flush=True)
                 fallback_css = fallback_css.replace("@theme_selected_bg_color", "@selected_bg_color")
             else:
-                print("replacing theme_selected_bg_color with Adwaita blue")
+                print("replacing theme_selected_bg_color with Adwaita blue", flush=True)
                 fallback_css = fallback_css.replace("@selected_bg_color", "#4a90d9")
 
             fallback_prov = Gtk.CssProvider()
 
-            if fallback_prov.load_from_data(fallback_css.encode()):
+            try:
+                fallback_prov.load_from_data(fallback_css.encode())
                 Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default(), fallback_prov, 600)
                 Gtk.StyleContext.reset_widgets(Gdk.Screen.get_default())
+            except Exception as e:
+                print("Could not parse fallback css: %s" % str(e))
 
 if __name__ == "__main__":
     setproctitle.setproctitle('cinnamon-screensaver')
